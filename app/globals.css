@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+ 
+@layer base {
+  :root {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+
+    --card: 0 0% 4%;
+    --card-foreground: 0 0% 100%;
+ 
+    --popover: 0 0% 4%;
+    --popover-foreground: 0 0% 100%;
+ 
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
+ 
+    --secondary: 0 0% 9%;
+    --secondary-foreground: 0 0% 100%;
+ 
+    --muted: 0 0% 9%;
+    --muted-foreground: 0 0% 60%;
+ 
+    --accent: 0 0% 9%;
+    --accent-foreground: 0 0% 100%;
+ 
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 12%;
+    --input: 0 0% 12%;
+    --ring: 0 0% 100%;
+ 
+    --radius: 0.5rem;
+  }
+}
+ 
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@keyframes flame {
+  0% { transform: scale(1) rotate(-5deg) translateY(0); }
+  25% { transform: scale(1.1) rotate(5deg) translateY(-1px); }
+  50% { transform: scale(1) rotate(-3deg) translateY(1px); }
+  75% { transform: scale(1.05) rotate(3deg) translateY(-1px); }
+  100% { transform: scale(1) rotate(-5deg) translateY(0); }
+}
+
+@keyframes glow {
+  0%, 100% { 
+    box-shadow: 0 0 5px theme('colors.orange.500'),
+                0 0 10px theme('colors.orange.500/50');
+  }
+  50% { 
+    box-shadow: 0 0 15px theme('colors.orange.500'),
+                0 0 25px theme('colors.orange.500/50');
+  }
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+.streak-flame {
+  animation: flame 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 2px theme('colors.orange.500'));
+}
+
+.streak-day {
+  animation: glow 2s ease-in-out infinite;
+  position: relative;
+}
+
+.streak-day::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(
+    45deg,
+    theme('colors.orange.500/0') 0%,
+    theme('colors.orange.500/20') 50%,
+    theme('colors.orange.500/0') 100%
+  );
+  animation: sparkle 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.streak-milestone {
+  position: relative;
+  overflow: hidden;
+}
+
+.streak-milestone::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle,
+    theme('colors.orange.500/30') 0%,
+    transparent 70%
+  );
+  animation: sparkle 4s ease-in-out infinite;
+}
+
