@@ -140,10 +140,9 @@ export function TaskItem({ task, onUpdate, onDelete }: TaskItemProps) {
                   <SelectValue placeholder="Select Subject" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="math">Math</SelectItem>
-                  <SelectItem value="science">Science</SelectItem>
-                  <SelectItem value="english">English</SelectItem>
-                  <SelectItem value="history">History</SelectItem>
+                  <SelectItem value="Physics">Physics</SelectItem>
+                  <SelectItem value="Chemistry">Chemistry</SelectItem>
+                  <SelectItem value="Mathematics">Mathematics</SelectItem>
                 </SelectContent>
               </Select>
             </div>

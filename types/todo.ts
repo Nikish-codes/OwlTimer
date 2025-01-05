@@ -10,6 +10,7 @@ export interface Todo {
   subtasks: any[]
   lastModified?: string
   completedAt: string | null
+  synced?: boolean
   recurring?: {
     frequency: 'daily' | 'weekly' | 'monthly'
     interval: number

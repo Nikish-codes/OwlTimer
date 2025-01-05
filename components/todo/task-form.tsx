@@ -20,7 +20,7 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
   const [text, setText] = useState('')
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
   const [priority, setPriority] = useState<Priority>('low')
-  const [subject, setSubject] = useState('math')
+  const [subject, setSubject] = useState('Physics')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,7 +36,7 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
     setText('')
     setDueDate(undefined)
     setPriority('low')
-    setSubject('math')
+    setSubject('Physics')
   }
 
   return (
@@ -82,10 +82,9 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
             <SelectValue placeholder="Select Subject" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="math">Math</SelectItem>
-            <SelectItem value="science">Science</SelectItem>
-            <SelectItem value="english">English</SelectItem>
-            <SelectItem value="history">History</SelectItem>
+            <SelectItem value="Physics">Physics</SelectItem>
+            <SelectItem value="Chemistry">Chemistry</SelectItem>
+            <SelectItem value="Mathematics">Mathematics</SelectItem>
           </SelectContent>
         </Select>
       </div>

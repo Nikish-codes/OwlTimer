@@ -39,19 +39,25 @@ export function useTasks() {
   const addTask = async (task: Omit<Todo, 'id' | 'userId' | 'createdAt'>) => {
     if (!user) return
     try {
-      const newTask = { ...task, userId: user.uid, createdAt: new Date().toISOString() }
+      const newTask = { 
+        ...task, 
+        userId: user.uid, 
+        createdAt: new Date().toISOString(),
+        synced: true 
+      }
       const id = await addTodo(newTask)
       setTasks(prev => [...prev, { ...newTask, id }])
 
       // Handle recurring tasks
       if (task.recurring && task.dueDate) {
+        const taskWithId = { ...newTask, id }
         const recurringInstances = generateRecurringInstances(
-          { ...newTask, id },
+          [taskWithId],
           startOfDay(new Date()),
           new Date(new Date().getFullYear() + 1, 0, 1)
         )
         recurringInstances.forEach(async instance => {
-          const recurringId = await addTodo(instance)
+          const recurringId = await addTodo({ ...instance, synced: true })
           setTasks(prev => [...prev, { ...instance, id: recurringId }])
         })
       }
@@ -67,8 +73,15 @@ export function useTasks() {
 
   const updateTask = async (taskId: string, updates: Partial<Todo>) => {
     try {
-      await updateTodo(taskId, updates)
-      setTasks(prev => prev.map(task => task.id === taskId ? { ...task, ...updates } : task))
+      const updatedTask = {
+        ...updates,
+        lastModified: new Date().toISOString(),
+        synced: true
+      }
+      await updateTodo(taskId, updatedTask)
+      setTasks(prev => prev.map(task => 
+        task.id === taskId ? { ...task, ...updatedTask } : task
+      ))
     } catch (error: any) {
       console.error('Error updating task:', error)
       toast({
