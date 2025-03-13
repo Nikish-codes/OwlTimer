@@ -71,14 +71,14 @@ export function ExamCountdown() {
 
   return (
     <Card>
-      <CardHeader className="flex items-center justify-between">
-        <CardTitle className="text-lg font-bold">
-            JEE Mains Countdown
+      <CardHeader className="flex flex-col sm:flex-row items-center justify-between gap-2">
+        <CardTitle className="text-lg font-bold text-center sm:text-left">
+            Exam Countdown
         </CardTitle>
         {isEditingDate ? (
-          <Button size="sm" onClick={handleDateSave}>Save</Button>
+          <Button size="sm" onClick={handleDateSave} className="w-full sm:w-auto">Save</Button>
         ) : (
-          <Button size="sm" onClick={() => setIsEditingDate(true)}>Change Date</Button>
+          <Button size="sm" onClick={() => setIsEditingDate(true)} className="w-full sm:w-auto">Change Date</Button>
         )}
       </CardHeader>
       <CardContent>
@@ -88,11 +88,12 @@ export function ExamCountdown() {
               type="date"
               value={examDateString}
               onChange={handleDateChange}
+              className="w-full"
             />
           </div>
         ) : (
         <div className="text-center">
-          <div className="text-6xl font-bold">
+          <div className="text-3xl sm:text-4xl md:text-6xl font-bold break-words">
             {timeLeft.days}d {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
           </div>
         </div>

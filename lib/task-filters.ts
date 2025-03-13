@@ -1,8 +1,8 @@
-import { Todo } from '@/types/todo'
+import { Todo } from '@/lib/firebase/todos'
 
 export interface TaskFilters {
   search: string
-  priorities: ('high' | 'medium' | 'low')[]
+  priorities: Todo['priority'][]
   subjects: string[]
   showCompleted: boolean
 }
@@ -10,27 +10,18 @@ export interface TaskFilters {
 export function filterTasks(tasks: Todo[], filters: TaskFilters): Todo[] {
   return tasks.filter(task => {
     // Search filter
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase()
-      const matchesSearch = 
-        task.text.toLowerCase().includes(searchLower) ||
-        task.subject.toLowerCase().includes(searchLower)
-      
-      if (!matchesSearch) return false
+    if (filters.search && !task.text.toLowerCase().includes(filters.search.toLowerCase())) {
+      return false
     }
 
     // Priority filter
-    if (filters.priorities.length > 0) {
-      if (!filters.priorities.includes(task.priority)) {
-        return false
-      }
+    if (filters.priorities.length > 0 && !filters.priorities.includes(task.priority)) {
+      return false
     }
 
     // Subject filter
-    if (filters.subjects.length > 0) {
-      if (!filters.subjects.includes(task.subject)) {
-        return false
-      }
+    if (filters.subjects.length > 0 && !filters.subjects.includes(task.subject)) {
+      return false
     }
 
     // Completed filter

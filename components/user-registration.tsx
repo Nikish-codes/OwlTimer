@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useFirebase } from './firebase-provider'
+import { useFirebase } from "@/components/firebase-provider"
 import { useToast } from "@/components/ui/use-toast"
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 
@@ -310,9 +310,9 @@ export function UserRegistration() {
   }
 
   return (
-    <Card className="max-w-md mx-auto mb-8">
+    <Card className="max-w-md mx-auto mb-8 w-full">
       <CardHeader>
-        <CardTitle>Welcome to JEE Prep Companion</CardTitle>
+        <CardTitle className="text-center text-lg sm:text-xl">Welcome to Exam Prep Companion</CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="signin">
@@ -355,18 +355,18 @@ export function UserRegistration() {
                 )}
               </div>
 
-              <div className="flex justify-between items-center">
-                <Button type="submit" className="flex-1 mr-2" disabled={loading}>
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
+                <Button type="submit" className="w-full sm:flex-1 sm:mr-2" disabled={loading}>
                   {loading ? "Signing in..." : "Sign In"}
                 </Button>
                 
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="outline" type="button">
+                    <Button variant="outline" type="button" className="w-full sm:w-auto">
                       Forgot Password?
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent>
+                  <AlertDialogContent className="max-w-[95vw] sm:max-w-md">
                     <AlertDialogHeader>
                       <AlertDialogTitle>Reset Password</AlertDialogTitle>
                       <AlertDialogDescription>
@@ -381,11 +381,12 @@ export function UserRegistration() {
                         onChange={(e) => setResetEmail(e.target.value)}
                       />
                     </div>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+                      <AlertDialogCancel className="w-full sm:w-auto">Cancel</AlertDialogCancel>
                       <AlertDialogAction 
                         onClick={handleResetPassword}
                         disabled={resetLoading}
+                        className="w-full sm:w-auto"
                       >
                         {resetLoading ? "Sending..." : "Send Reset Link"}
                       </AlertDialogAction>

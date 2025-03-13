@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { cn } from "@/lib/utils"
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay } from 'date-fns'
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay, startOfWeek, endOfWeek } from 'date-fns'
 import { DndContext, DragEndEvent } from '@dnd-kit/core'
 import { Todo } from '@/types/todo'
 import { StudySession } from '@/types/study-session'
@@ -31,14 +31,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DayDetailsDialog } from './day-details-dialog'
 
 interface CalendarViewProps {
-  studySessions: StudySession[];
-  tasks: Todo[];
-  events: CalendarEvent[];
-  onUpdateTask: (taskId: string, updates: Partial<Todo>) => Promise<void>;
-  onAddTask: (task: Omit<Todo, 'id'>) => Promise<void>;
-  onAddEvent: (event: Omit<CalendarEvent, 'id'>) => Promise<void>;
-  onUpdateEvent: (eventId: string, updates: Partial<CalendarEvent>) => Promise<void>;
-  onDeleteEvent: (eventId: string) => Promise<void>;
+  studySessions: StudySession[]
+  tasks: Todo[]
+  events: CalendarEvent[]
+  onUpdateTask: (taskId: string, updates: Partial<Todo>) => Promise<void>
+  onAddTask: (task: Omit<Todo, 'id'>) => Promise<void>
+  onAddEvent: (event: Omit<CalendarEvent, 'id'>) => Promise<void>
+  onUpdateEvent: (eventId: string, updates: Partial<CalendarEvent>) => Promise<void>
+  onDeleteEvent: (eventId: string) => Promise<void>
 }
 
 type ViewMode = 'month' | 'week' | 'day'
@@ -54,33 +54,18 @@ export function CalendarView({
   onDeleteEvent,
 }: CalendarViewProps) {
   const { user } = useFirebase()
-  const { 
-    loading: studySessionsLoading 
-  } = useStudySessions()
-  const { 
-    loading: eventsLoading, 
-    addEvent: addNewEvent, 
-    updateEvent: updateExistingEvent, 
-    deleteEvent: deleteExistingEvent,
-    refreshEvents
-  } = useEvents()
+  const { loading: studySessionsLoading } = useStudySessions()
+  const { loading: eventsLoading, refreshEvents } = useEvents()
+  
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [currentWeek, setCurrentWeek] = useState(new Date())
   const [currentDay, setCurrentDay] = useState(new Date())
-  const [selectedDate, setSelectedDate] = useState< Date | null >(new Date())
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false)
-  const [selectedEvent, setSelectedEvent] = useState< CalendarEvent | null >(null)
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [isDayDetailsOpen, setIsDayDetailsOpen] = useState(false)
   const [selectedDayForDetails, setSelectedDayForDetails] = useState<Date | null>(null)
-
-  useEffect(() => {
-    console.log('Current events:', events)
-  }, [events])
-
-  useEffect(() => {
-    console.log('Events in calendar:', events)
-  }, [events])
 
   const handleEventDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
@@ -101,7 +86,7 @@ export function CalendarView({
 
   const handleEventUpdate = async (eventId: string, updates: Partial<CalendarEvent>) => {
     try {
-      await updateExistingEvent(eventId, updates)
+      await onUpdateEvent(eventId, updates)
       await refreshEvents()
       setIsEventDialogOpen(false)
     } catch (error) {
@@ -111,7 +96,7 @@ export function CalendarView({
 
   const handleEventDelete = async (eventId: string) => {
     try {
-      await deleteExistingEvent(eventId)
+      await onDeleteEvent(eventId)
       await refreshEvents()
       setIsEventDialogOpen(false)
     } catch (error) {
@@ -128,6 +113,7 @@ export function CalendarView({
     try {
       await onAddEvent(newEvent)
       setIsEventDialogOpen(false)
+      await refreshEvents()
     } catch (error) {
       console.error("Error adding event:", error)
     }
@@ -139,25 +125,25 @@ export function CalendarView({
   })
 
   const daysInWeek = eachDayOfInterval({
-    start: startOfMonth(currentWeek),
-    end: endOfMonth(currentWeek)
+    start: startOfWeek(currentWeek),
+    end: endOfWeek(currentWeek)
   })
 
-  const streaksData = studySessions ? calculateStreaks(studySessions) : { currentStreak: 0, streaks: [] };
-  const { streaks } = streaksData;
+  const streaksData = studySessions ? calculateStreaks(studySessions) : { currentStreak: 0, streaks: [] }
+  const { streaks } = streaksData
 
   const handleDateClick = (date: Date) => {
-    if (isEventDialogOpen) return;
+    if (isEventDialogOpen) return
     
     setSelectedDayForDetails(date)
     setIsDayDetailsOpen(true)
   }
 
-  const handleEventClick = (event: CalendarEvent): void => {
-    setSelectedDate(new Date(event.startTime));
-    setSelectedEvent(event);
-    setIsEventDialogOpen(true);
-  };
+  const handleEventClick = (event: CalendarEvent) => {
+    setSelectedDate(new Date(event.startTime))
+    setSelectedEvent(event)
+    setIsEventDialogOpen(true)
+  }
 
   const handleTodayClick = () => {
     const today = new Date()
@@ -175,7 +161,7 @@ export function CalendarView({
         <div className="flex items-center justify-between">
           <CardTitle>
             {viewMode === 'month' && format(currentMonth, 'MMMM yyyy')}
-            {viewMode === 'week' && `${format(currentWeek, 'MMMM dd')} - ${format(addMonths(currentWeek, 6), 'dd, yyyy')}`}
+            {viewMode === 'week' && `Week of ${format(currentWeek, 'MMMM dd, yyyy')}`}
             {viewMode === 'day' && format(currentDay, 'MMMM dd, yyyy')}
           </CardTitle>
           <div className="flex items-center gap-2">
@@ -238,6 +224,10 @@ export function CalendarView({
                 </div>
               ))}
               
+              {Array.from({ length: startOfMonth(currentMonth).getDay() }).map((_, index) => (
+                <div key={`empty-${index}`} className="p-2 h-24 border rounded-md bg-muted text-muted-foreground" />
+              ))}
+              
               {daysInMonth.map(day => (
                 <DroppableCell key={day.toISOString()} date={day}>
                   <div
@@ -262,24 +252,14 @@ export function CalendarView({
                       </span>
                       <StreakIndicator count={getStreakForDate(streaks, day) || 0} />
                     </div>
-                    <div className="flex flex-col gap-1 mt-1">
+                    <div className="flex flex-col gap-1 mt-1 overflow-hidden">
                       {eventsLoading ? (
-                        <div className="text-xs text-muted-foreground">Loading events...</div>
-                      ) : events.length === 0 ? (
+                        <div className="text-xs text-muted-foreground">Loading...</div>
+                      ) : events.filter(event => isSameDay(new Date(event.startTime), day)).length === 0 ? (
                         <div className="text-xs text-muted-foreground">No events</div>
                       ) : (
                         events
-                          .filter(event => {
-                            const eventDate = new Date(event.startTime)
-                            const isSame = isSameDay(eventDate, day)
-                            console.log(
-                              'Event:', event.title,
-                              'Date:', format(eventDate, 'yyyy-MM-dd'),
-                              'Comparing with:', format(day, 'yyyy-MM-dd'),
-                              'Same day?:', isSame
-                            )
-                            return isSame
-                          })
+                          .filter(event => isSameDay(new Date(event.startTime), day))
                           .map(event => (
                             <EventIndicator 
                               key={event.id} 
@@ -354,16 +334,9 @@ export function CalendarView({
             setIsEventDialogOpen(true)
             setIsDayDetailsOpen(false)
           }}
-          onDeleteEvent={async (eventId) => {
-            try {
-              await handleEventDelete(eventId)
-              await refreshEvents()
-            } catch (error) {
-              console.error("Error deleting event:", error)
-            }
-          }}
+          onDeleteEvent={handleEventDelete}
         />
       </CardContent>
     </Card>
   )
-} 
+}

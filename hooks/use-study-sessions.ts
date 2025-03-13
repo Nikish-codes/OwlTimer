@@ -25,7 +25,16 @@ export function useStudySessions() {
         orderBy('timestamp', 'desc')
       )
       const snapshot = await getDocs(q)
-      setSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudySession)))
+      setSessions(snapshot.docs.map(doc => ({ 
+        id: doc.id,
+        userId: doc.data().userId,
+        subject: doc.data().subject,
+        duration: doc.data().duration,
+        date: doc.data().date,
+        timestamp: doc.data().timestamp?.toDate?.() || new Date(),
+        createdAt: doc.data().createdAt,
+        type: doc.data().type
+      } as StudySession)))
     } catch (error) {
       console.error('Error loading sessions:', error)
     }

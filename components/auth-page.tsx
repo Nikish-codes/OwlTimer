@@ -12,15 +12,16 @@ export function AuthPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-primary">
-            JEE Mains 2025 Prep Companion
+        <div className="container mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
+            Exam 2025 Prep Companion
           </h1>
           <div className="flex items-center gap-4">
             {!showAuth && (
               <Button 
                 variant="outline"
                 onClick={() => setShowAuth(true)}
+                className="text-sm sm:text-base"
               >
                 Sign In to Compete
               </Button>
@@ -44,16 +45,16 @@ export function AuthPage() {
         ) : (
           <div className="max-w-4xl mx-auto">
             <Card>
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="text-center space-y-4">
-                  <h2 className="text-xl font-semibold">
+                  <h2 className="text-lg sm:text-xl font-semibold">
                     Continue Without Signing In
                   </h2>
-                  <p className="text-muted-foreground">
+                  <p className="text-muted-foreground text-sm sm:text-base">
                     You can use the app without signing in, but your data will only be saved locally. 
                     Sign in to:
                   </p>
-                  <ul className="text-left list-disc list-inside space-y-2">
+                  <ul className="text-left list-disc list-inside space-y-2 text-sm sm:text-base">
                     <li>Compete with other students on the leaderboard</li>
                     <li>Sync your data across devices</li>
                     <li>Track your long-term progress</li>
@@ -75,7 +76,7 @@ export function AuthPage() {
       </main>
 
       <footer className="border-t">
-        <div className="container mx-auto px-4 py-4 text-center text-sm text-muted-foreground">
+        <div className="container mx-auto px-4 py-4 text-center text-xs sm:text-sm text-muted-foreground">
           Created with ❤️ by Nikish • 
           <Button variant="link" size="sm" asChild>
             <a href="mailto:notnikish@gmail.com">Need Help?</a>

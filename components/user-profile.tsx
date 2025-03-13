@@ -1,11 +1,11 @@
 "use client"
 
-import { useFirebase } from './firebase-provider'
-import { Button } from './ui/button'
-import { getAuth, signOut } from 'firebase/auth'
-import { Dialog, DialogContent, DialogTrigger } from './ui/dialog'
-import { ProfileManager } from './profile-manager'
-import { Settings } from 'lucide-react'
+import { useFirebase } from "@/components/firebase-provider"
+import { Button } from "@/components/ui/button"
+import { getAuth, signOut } from "firebase/auth"
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import { ProfileManager } from "@/components/profile-manager"
+import { Settings } from "lucide-react"
 
 interface UserProfileProps {
   expanded?: boolean;

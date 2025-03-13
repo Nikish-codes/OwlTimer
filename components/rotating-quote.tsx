@@ -4,21 +4,26 @@ import { useState, useEffect } from 'react'
 import { Quote } from 'lucide-react'
 
 interface QuoteData {
-  _id: string
-  content: string
+  quote: string
   author: string
 }
 
 const fallbackQuotes = [
   {
-    _id: "1",
-    content: "The only way to do great work is to love what you do.",
+    quote: "The only way to do great work is to love what you do.",
     author: "Steve Jobs"
   },
   {
-    _id: "2",
-    content: "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+    quote: "Success is not final, failure is not fatal: it is the courage to continue that counts.",
     author: "Winston Churchill"
+  },
+  {
+    quote: "Believe you can and you're halfway there.",
+    author: "Theodore Roosevelt"
+  },
+  {
+    quote: "The future belongs to those who believe in the beauty of their dreams.",
+    author: "Eleanor Roosevelt"
   }
 ]
 
@@ -28,18 +33,18 @@ export function RotatingQuote() {
 
   const fetchQuote = async () => {
     try {
-      const response = await fetch('https://api.quotable.io/quotes/random')
+      setLoading(true)
+      const response = await fetch('https://quotes-api-self.vercel.app/quote')
       if (!response.ok) throw new Error('Failed to fetch quote')
       
       const data = await response.json()
-      if (data && data[0]) {
+      if (data && data.quote) {
         setQuote({
-          _id: data[0]._id,
-          content: data[0].content,
-          author: data[0].author
+          quote: data.quote,
+          author: data.author
         })
       } else {
-        // Use a random fallback quote if API fails
+        // Use a random fallback quote if API response is malformed
         setQuote(fallbackQuotes[Math.floor(Math.random() * fallbackQuotes.length)])
       }
     } catch (error) {
@@ -65,7 +70,7 @@ export function RotatingQuote() {
     <div className="flex items-start gap-2 p-4 rounded-lg bg-muted/50">
       <Quote className="h-4 w-4 text-primary shrink-0 mt-1" />
       <div>
-        <p className="text-sm italic">{quote.content}</p>
+        <p className="text-sm italic">{quote.quote}</p>
         <p className="text-xs text-muted-foreground mt-2">
           - {quote.author}
         </p>

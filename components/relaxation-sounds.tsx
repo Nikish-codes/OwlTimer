@@ -4,7 +4,7 @@ import type React from "react"
 import { useRef, useEffect } from "react"
 import { Play, Pause, Volume2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useAudioState } from "./audio-state-provider"
+import { useAudioState } from "@/components/audio-state-provider"
 
 type Sound = {
   name: string

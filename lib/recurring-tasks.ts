@@ -34,7 +34,9 @@ export function generateRecurringInstances(tasks: Todo[], startDate: Date, endDa
     }
   })
 
-  return instances.sort((a, b) => 
-    new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-  )
-} 
+  return instances.sort((a, b) => {
+    if (!a.dueDate) return 1
+    if (!b.dueDate) return -1
+    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+  })
+}

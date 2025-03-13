@@ -91,8 +91,10 @@ export function TaskList({ tasks, onToggleComplete, onDelete }: TaskListProps) {
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
               <Calendar
-                value={date || undefined}
-                onChange={(date: Date | null) => setDate(date || undefined)}
+                mode="single"
+                selected={date}
+                onSelect={setDate}
+                initialFocus
               />
             </PopoverContent>
           </Popover>
@@ -176,4 +178,4 @@ export function TaskList({ tasks, onToggleComplete, onDelete }: TaskListProps) {
       </CardContent>
     </Card>
   )
-} 
+}

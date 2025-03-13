@@ -5,7 +5,7 @@ export interface Todo {
   subject: string
   priority: "low" | "medium" | "high"
   completed: boolean
-  dueDate: string
+  dueDate: string | null
   createdAt: string
   subtasks: any[]
   lastModified?: string
@@ -22,4 +22,4 @@ export interface Subtask {
   id: string
   text: string
   completed: boolean
-} 
+}

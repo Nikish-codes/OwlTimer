@@ -25,18 +25,32 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && isOwner(resource.data.userId);
     }
 
-    // Study sessions collection rules
+    // Study sessions collection rules (old path) - Allow read access for leaderboard
     match /study-sessions/{sessionId} {
-      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      allow update, delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+    
+    // Study sessions collection rules (new path) - Allow read access for leaderboard
+    match /studySessions/{sessionId} {
+      allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
       allow update, delete: if isAuthenticated() && isOwner(resource.data.userId);
     }
 
-    // User profiles collection rules
+    // User profiles collection rules - Allow read access for leaderboard
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create, update: if isAuthenticated() && isOwner(userId);
       allow delete: if false; // Prevent user deletion through client
+      
+      // Allow access to user's sessions subcollection - Modified for leaderboard
+      match /sessions/{sessionId} {
+        allow read: if isAuthenticated(); // Allow any authenticated user to read sessions for leaderboard
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow update, delete: if isAuthenticated() && isOwner(userId);
+      }
     }
   }
 } 

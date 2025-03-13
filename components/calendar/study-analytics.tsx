@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { format } from "date-fns"
 import { Brain, Timer, Trophy, Clock, Coffee, TrendingUp } from "lucide-react"
 
+
 interface StudyAnalyticsProps {
   sessions: StudySession[]
 }

@@ -1,22 +1,33 @@
-import { Todo } from "@/types/todo"
-import { Checkbox } from "@/components/ui/checkbox"
-import { cn } from "@/lib/utils"
-import { useState } from "react"
+"use client"
+
+import { useState, useEffect } from "react"
+import { format, isPast, isToday, isTomorrow } from "date-fns"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { 
+  Calendar, 
+  Edit, 
+  MoreHorizontal, 
+  Trash2,
+  BookOpen,
+  AlertTriangle,
+  Check
+} from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useToast } from "@/components/ui/use-toast"
-import { format } from "date-fns"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { TaskForm } from "@/components/task-form"
+import { Todo } from "@/lib/firebase/todos"
 
 interface TaskItemProps {
   task: Todo
@@ -25,149 +36,195 @@ interface TaskItemProps {
 }
 
 export function TaskItem({ task, onUpdate, onDelete }: TaskItemProps) {
-  const { toast } = useToast()
   const [isEditing, setIsEditing] = useState(false)
-  const [text, setText] = useState(task.text)
-  const [dueDate, setDueDate] = useState<Date | undefined>(task.dueDate ? new Date(task.dueDate) : undefined)
-  const [priority, setPriority] = useState(task.priority)
-  const [subject, setSubject] = useState(task.subject)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isChecked, setIsChecked] = useState(task.completed)
 
-  const handleCheckboxChange = async (checked: boolean) => {
+  useEffect(() => {
+    setIsChecked(task.completed);
+  }, [task.completed]);
+
+  const handleToggleComplete = async () => {
+    const newCompletedState = !isChecked;
+    setIsChecked(newCompletedState);
+    
     try {
-      await onUpdate(task.id, { completed: checked, completedAt: checked ? new Date().toISOString() : null })
-      toast({
-        title: "Success",
-        description: `Task ${checked ? 'completed' : 'uncompleted'}`,
-      })
+      await onUpdate(task.id, {
+        completed: newCompletedState,
+        completedAt: newCompletedState ? new Date().toISOString() : null
+      });
     } catch (error) {
-      console.error("Error updating task:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update task",
-        variant: "destructive"
-      })
+      console.error("Error updating task completion status:", error);
+      setIsChecked(!newCompletedState);
     }
   }
 
-  const handleTaskDelete = async () => {
+  const handleUpdate = async (updatedFields: Omit<Todo, 'id' | 'userId' | 'createdAt'>) => {
     try {
-      await onDelete(task.id)
-      toast({
-        title: "Success",
-        description: "Task deleted successfully",
-      })
-    } catch (error) {
-      console.error("Error deleting task:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete task",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const handleTaskEdit = async () => {
-    setIsEditing(true)
-  }
-
-  const handleTaskSave = async () => {
-    try {
-      await onUpdate(task.id, { text, dueDate: dueDate?.toISOString(), priority, subject })
-      toast({
-        title: "Success",
-        description: "Task updated successfully",
-      })
+      await onUpdate(task.id, updatedFields)
       setIsEditing(false)
     } catch (error) {
       console.error("Error updating task:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update task",
-        variant: "destructive"
-      })
     }
   }
 
-  const handleTaskCancel = () => {
-    setIsEditing(false)
-    setText(task.text)
-    setDueDate(task.dueDate ? new Date(task.dueDate) : undefined)
-    setPriority(task.priority)
-    setSubject(task.subject)
+  const handleDelete = async () => {
+    try {
+      await onDelete(task.id)
+      setIsDeleteDialogOpen(false)
+    } catch (error) {
+      console.error("Error deleting task:", error)
+    }
+  }
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return 'text-red-500 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/30'
+      case 'medium':
+        return 'text-amber-500 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/30'
+      case 'low':
+        return 'text-green-500 bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800/30'
+      default:
+        return 'text-slate-500 bg-slate-50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-800/30'
+    }
+  }
+
+  const getDueDateDisplay = () => {
+    if (!task.dueDate) return null
+    
+    const dueDate = new Date(task.dueDate)
+    let label = format(dueDate, 'MMM d')
+    let className = "text-slate-500 bg-slate-50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-800/30"
+    
+    if (isPast(dueDate) && !isToday(dueDate)) {
+      label = `Overdue: ${label}`
+      className = "text-red-500 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/30"
+    } else if (isToday(dueDate)) {
+      label = "Today"
+      className = "text-blue-500 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/30"
+    } else if (isTomorrow(dueDate)) {
+      label = "Tomorrow"
+      className = "text-purple-500 bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800/30"
+    }
+    
+    return (
+      <Badge variant="outline" className={`${className} flex items-center gap-1 text-xs font-normal`}>
+        <Calendar className="h-3 w-3" />
+        {label}
+      </Badge>
+    )
   }
 
   return (
-    <div className="flex items-center justify-between p-2 rounded-md border">
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id={task.id}
-          checked={task.completed}
-          onCheckedChange={handleCheckboxChange}
-        />
-        {isEditing ? (
-          <div className="flex flex-col gap-2">
-            <Input
-              type="text"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-            />
-            <div className="flex items-center gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    {dueDate ? format(dueDate, 'MMM d, yyyy') : 'Select Date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="p-0" align="start">
-                  <Calendar
-                    value={dueDate || undefined}
-                    onChange={(date: Date | null) => setDueDate(date || undefined)}
-                  />
-                </PopoverContent>
-              </Popover>
-              <Select onValueChange={(value: Todo["priority"]) => setPriority(value)} value={priority}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder="Select Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select onValueChange={(value) => setSubject(value)} value={subject}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder="Select Subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Physics">Physics</SelectItem>
-                  <SelectItem value="Chemistry">Chemistry</SelectItem>
-                  <SelectItem value="Mathematics">Mathematics</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleTaskSave}>Save</Button>
-              <Button size="sm" variant="secondary" onClick={handleTaskCancel}>Cancel</Button>
-            </div>
+    <>
+      <div className={`flex items-center gap-3 p-3 rounded-lg border ${task.completed ? 'bg-muted/30 border-muted' : 'bg-card border-border hover:border-primary/20 hover:bg-accent/5'} transition-colors group`}>
+        {/* Improved custom checkbox for better visibility */}
+        <div 
+          onClick={handleToggleComplete}
+          className={`flex-shrink-0 h-5 w-5 rounded-md border cursor-pointer flex items-center justify-center transition-colors ${
+            isChecked 
+              ? 'bg-primary border-primary text-primary-foreground' 
+              : 'border-input hover:border-primary hover:bg-primary/10'
+          }`}
+        >
+          {isChecked && <Check className="h-3.5 w-3.5" />}
+        </div>
+        
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className={`font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+              {/* Display text field for the task title */}
+              {task.text}
+            </p>
           </div>
-        ) : (
-          <span className={cn(task.completed ? "line-through text-muted-foreground" : "")}>
-            {task.text}
-          </span>
-        )}
+          
+          {/* Check for description in a type-safe way */}
+          {(task as any).description && (
+            <p className={`text-sm text-muted-foreground mt-0.5 line-clamp-1 ${task.completed ? 'line-through opacity-50' : ''}`}>
+              {(task as any).description}
+            </p>
+          )}
+          
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            {task.subject && (
+              <Badge variant="outline" className="flex items-center gap-1 text-xs font-normal text-blue-500 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/30">
+                <BookOpen className="h-3 w-3" />
+                {task.subject}
+              </Badge>
+            )}
+            
+            {task.priority && (
+              <Badge variant="outline" className={`flex items-center gap-1 text-xs font-normal ${getPriorityColor(task.priority)}`}>
+                <AlertTriangle className="h-3 w-3" />
+                {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)} Priority
+              </Badge>
+            )}
+            
+            {getDueDateDisplay()}
+          </div>
+        </div>
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">Actions</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setIsEditing(true)}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={() => setIsDeleteDialogOpen(true)}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-8 w-8 p-0">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={handleTaskEdit}>Edit</DropdownMenuItem>
-          <DropdownMenuItem onClick={handleTaskDelete}>Delete</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditing} onOpenChange={setIsEditing}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Make changes to your task here.
+            </p>
+          </DialogHeader>
+          <TaskForm 
+            initialValues={task}
+            onSubmit={handleUpdate}
+            submitLabel="Save Changes"
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Task</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete this task? This action cannot be undone.
+            </p>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 } 

@@ -1,61 +1,152 @@
+"use client"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select"
+import { 
+  Popover, 
+  PopoverContent, 
+  PopoverTrigger 
+} from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { CalendarIcon } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Task } from "@/hooks/use-local-tasks"
 
 interface TaskFormProps {
-  onSubmit: (task: { text: string; priority: "low" | "medium" | "high"; subject: string; dueDate: string; completed: boolean; completedAt: string | null; subtasks: any[] }) => void
+  initialValues?: Partial<Task>
+  onSubmit: (task: Omit<Task, 'id' | 'createdAt'>) => void
+  submitLabel?: string
 }
 
-export function TaskForm({ onSubmit }: TaskFormProps) {
-  const [title, setTitle] = useState("")
-  const [priority, setPriority] = useState<"low" | "medium" | "high">("medium")
-  const [subject, setSubject] = useState("")
-  const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
+export function TaskForm({ initialValues, onSubmit, submitLabel = "Add Task" }: TaskFormProps) {
+  const [text, setText] = useState(initialValues?.text || "")
+  const [priority, setPriority] = useState<"low" | "medium" | "high">(initialValues?.priority || "medium")
+  const [subject, setSubject] = useState(initialValues?.subject || "")
+  const [dueDate, setDueDate] = useState<Date | undefined>(
+    initialValues?.dueDate ? new Date(initialValues.dueDate) : new Date()
+  )
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit({ 
-      text: title,
-      priority, 
-      subject, 
-      dueDate: dueDate?.toISOString() ?? "",
-      completed: false,
-      completedAt: null,
-      subtasks: []
-    })
-    setTitle("")
-    setSubject("")
-    setDueDate(undefined)
+    
+    if (!text.trim()) {
+      return // Don't submit empty tasks
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      await onSubmit({
+        text,
+        priority,
+        subject,
+        dueDate: dueDate ? dueDate.toISOString() : null,
+        completed: initialValues?.completed || false,
+        completedAt: initialValues?.completedAt || null,
+        subtasks: initialValues?.subtasks || []
+      })
+      
+      // Clear form if not editing
+      if (!initialValues) {
+        setText("")
+        setPriority("medium")
+        setSubject("")
+        setDueDate(undefined)
+      }
+    } catch (error) {
+      console.error("Error submitting task:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 mb-6">
-      <div className="flex gap-4">
+    <form onSubmit={handleSubmit} className="space-y-6 p-4 bg-card rounded-lg border shadow-sm">
+      <div className="space-y-4">
         <Input
-          placeholder="Task title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          placeholder="What needs to be done?"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="w-full text-lg"
           required
         />
-        <Select value={priority} onValueChange={(value: "low" | "medium" | "high") => setPriority(value)}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Priority" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="low">Low</SelectItem>
-            <SelectItem value="medium">Medium</SelectItem>
-            <SelectItem value="high">High</SelectItem>
-          </SelectContent>
-        </Select>
-        <Input
-          type="date"
-          value={dueDate?.toISOString().split('T')[0] ?? ""}
-          onChange={(e) => setDueDate(e.target.value ? new Date(e.target.value) : undefined)}
-          required
-        />
-        <Button type="submit">Add Task</Button>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !dueDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dueDate ? format(dueDate, "PPP") : "Pick a due date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dueDate}
+                onSelect={setDueDate}
+                initialFocus
+                weekStartsOn={1}
+                fromDate={new Date()}
+              />
+            </PopoverContent>
+          </Popover>
+          
+          <Select value={priority} onValueChange={(value: "low" | "medium" | "high") => setPriority(value)}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select Priority" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">Low Priority</SelectItem>
+              <SelectItem value="medium">Medium Priority</SelectItem>
+              <SelectItem value="high">High Priority</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Select value={subject} onValueChange={setSubject}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select Subject" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Physics">Physics</SelectItem>
+              <SelectItem value="Chemistry">Chemistry</SelectItem>
+              <SelectItem value="Mathematics">Mathematics</SelectItem>
+              <SelectItem value="Biology">Biology</SelectItem>
+              <SelectItem value="History">History</SelectItem>
+              <SelectItem value="Geography">Geography</SelectItem>
+              <SelectItem value="English">English</SelectItem>
+              <SelectItem value="Computer Science">Computer Science</SelectItem>
+              <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      
+      <div className="flex justify-end pt-4 border-t">
+        <Button 
+          type="submit" 
+          disabled={isSubmitting || !text.trim()}
+          className="w-full sm:w-auto min-w-[120px]"
+          size="lg"
+        >
+          {isSubmitting ? "Saving..." : submitLabel}
+        </Button>
       </div>
     </form>
   )
-} 
+}

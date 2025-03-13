@@ -8,6 +8,14 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+    screens: {
+      'xs': '480px',
+      'sm': '640px',
+      'md': '768px',
+      'lg': '1024px',
+      'xl': '1280px',
+      '2xl': '1536px',
+    },
   	extend: {
   		colors: {
   			background: 'hsl(var(--background))',
@@ -58,6 +66,22 @@ const config: Config = {
   		}
   	}
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    // @ts-ignore - Simple plugin to hide scrollbars
+    function({ addUtilities }) {
+      const newUtilities = {
+        '.scrollbar-hide': {
+          /* Firefox */
+          'scrollbar-width': 'none',
+          /* Safari and Chrome */
+          '&::-webkit-scrollbar': {
+            display: 'none'
+          }
+        }
+      }
+      addUtilities(newUtilities);
+    }
+  ],
 };
 export default config;

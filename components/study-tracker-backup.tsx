@@ -4,14 +4,14 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
-import { useFirebase } from './firebase-provider'
+import { useFirebase } from "@/components/firebase-provider"
 import { collection, query, where, getDocs, addDoc, Timestamp, updateDoc, doc, getDoc } from 'firebase/firestore'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
 import { useOfflineStorage } from '@/hooks/use-offline-storage'
-import { StudyAnalytics } from './study-analytics'
+import { StudyAnalytics } from "@/components/study-analytics"
 import { toast } from '@/components/ui/use-toast'
-import { useTimer } from './study-timer-provider'
+import { useTimer } from "@/components/study-timer-provider"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 

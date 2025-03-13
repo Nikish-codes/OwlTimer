@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { useToast } from "@/components/ui/use-toast"
 
 type TimerMode = 'normal' | 'pomodoro'
@@ -18,11 +18,15 @@ interface TimerContextType {
   pomodoroSettings: {
     workDuration: number;
     breakDuration: number;
+    longBreakDuration: number;
+    sessionsBeforeLongBreak: number;
   };
-  setPomodoroSettings: (settings: { workDuration: number; breakDuration: number }) => void;
+  setPomodoroSettings: (settings: { workDuration: number; breakDuration: number; longBreakDuration: number; sessionsBeforeLongBreak: number }) => void;
   currentPhase: PomodoroPhase;
   totalElapsedTime: number;
   sessionStartTime: number | null;
+  completedSessions: number;
+  skipBreak: () => void;
 }
 
 const TimerContext = createContext<TimerContextType | undefined>(undefined)
@@ -43,8 +47,19 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const [currentPhase, setCurrentPhase] = useState<PomodoroPhase>('work')
   const [pomodoroSettings, setPomodoroSettings] = useState({
     workDuration: 25 * 60,
-    breakDuration: 5 * 60
+    breakDuration: 5 * 60,
+    longBreakDuration: 15 * 60,
+    sessionsBeforeLongBreak: 4
   })
+  
+  // Track completed pomodoro sessions
+  const [completedSessions, setCompletedSessions] = useState(0)
+  
+  // Ref to track the last phase change time to prevent multiple triggers
+  const lastPhaseChangeRef = useRef<number>(0)
+  
+  // Ref to track the last tick time for accurate timing across tab switches
+  const lastTickTimeRef = useRef<number>(Date.now())
 
   // Initialize state from localStorage on component mount
   useEffect(() => {
@@ -112,20 +127,96 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         setSessionStartTime(now)
         localStorage.setItem('sessionStartTime', now.toString())
       }
+      
+      // Initialize the last tick time
+      lastTickTimeRef.current = Date.now()
 
+      // Use a more precise interval for better accuracy
       interval = setInterval(() => {
-        if (mode === 'normal') {
-          setCurrentTime(prev => prev + 1)
-          setTotalElapsedTime(prev => prev + 1)
-        } else {
-          setCurrentTime(prev => Math.max(0, prev - 1))
-          setTotalElapsedTime(prev => prev + 1)
+        const now = Date.now()
+        // Calculate actual elapsed seconds since last tick (handles tab switching)
+        const elapsedSeconds = Math.floor((now - lastTickTimeRef.current) / 1000)
+        
+        // Only update if at least 1 second has passed
+        if (elapsedSeconds > 0) {
+          // Update last tick time
+          lastTickTimeRef.current = now
+          
+          // Dispatch a custom event for minute changes
+          const oldTotalMinutes = Math.floor(totalElapsedTime / 60)
+          const newTotalMinutes = Math.floor((totalElapsedTime + elapsedSeconds) / 60)
+          const minuteChanged = newTotalMinutes > oldTotalMinutes
+          
+          if (mode === 'normal') {
+            setCurrentTime(prev => prev + elapsedSeconds)
+            setTotalElapsedTime(prev => {
+              const newValue = prev + elapsedSeconds
+              // If we crossed a minute boundary, dispatch an event
+              if (minuteChanged) {
+                window.dispatchEvent(new CustomEvent('timer-minute-changed', {
+                  detail: { minutes: newTotalMinutes }
+                }))
+              }
+              return newValue
+            })
+          } else {
+            // For pomodoro mode, handle countdown with elapsed seconds
+            setCurrentTime(prev => {
+              const newValue = Math.max(0, prev - elapsedSeconds)
+              return newValue
+            })
+            setTotalElapsedTime(prev => {
+              const newValue = prev + elapsedSeconds
+              // If we crossed a minute boundary, dispatch an event
+              if (minuteChanged) {
+                window.dispatchEvent(new CustomEvent('timer-minute-changed', {
+                  detail: { minutes: newTotalMinutes }
+                }))
+              }
+              return newValue
+            })
+          }
         }
-      }, 1000)
+      }, 500) // Run twice per second for better accuracy
     }
 
     return () => clearInterval(interval)
-  }, [isRunning, mode, sessionStartTime])
+  }, [isRunning, mode, sessionStartTime, totalElapsedTime])
+
+  // Effect to handle mode changes - completely reset timer on mode change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('timerMode', mode)
+      
+      // Always reset the timer when mode changes
+      setIsRunning(false)
+      
+      // Reset timer for the new mode
+      if (mode === 'normal') {
+        // When switching to normal mode, always start from 0
+        setCurrentTime(0)
+        setTotalElapsedTime(0)
+      } else {
+        // When switching to pomodoro, always start with full work duration
+        setCurrentPhase('work')
+        setCurrentTime(pomodoroSettings.workDuration)
+        setTotalElapsedTime(0)
+      }
+      
+      // Reset session start time
+      setSessionStartTime(null)
+      
+      // Clear localStorage values
+      localStorage.setItem('timerRunning', 'false')
+      localStorage.setItem('currentTime', mode === 'normal' ? '0' : pomodoroSettings.workDuration.toString())
+      localStorage.setItem('totalElapsedTime', '0')
+      localStorage.removeItem('sessionStartTime')
+      localStorage.removeItem('pausedTime')
+      localStorage.removeItem('pausedTotalElapsedTime')
+      localStorage.removeItem('pausedSubject')
+      localStorage.removeItem('pausedElapsedTime')
+    }
+  }, [mode, pomodoroSettings.workDuration]);
 
   // Persist timer state to localStorage whenever it changes
   useEffect(() => {
@@ -146,59 +237,90 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 
   // Handle pomodoro phase changes
   useEffect(() => {
-    if (mode === 'pomodoro' && isRunning && currentTime <= 0) {
-      // Phase completed
-      const newPhase = currentPhase === 'work' ? 'break' : 'work'
-      setCurrentPhase(newPhase)
-      
-      // Set timer for the new phase
-      setCurrentTime(newPhase === 'work' ? pomodoroSettings.workDuration : pomodoroSettings.breakDuration)
-      
-      // Play sound and show notification
-      try {
-        const audio = new Audio(newPhase === 'work' 
-          ? 'https://assets.mixkit.co/active_storage/sfx/2574/2574.wav'
-          : 'https://assets.mixkit.co/active_storage/sfx/2575/2575.wav')
-        audio.play()
-      } catch (error) {
-        console.error('Failed to play sound:', error)
+    // Only trigger when timer reaches exactly zero, not when it's already at zero
+    if (mode === 'pomodoro' && isRunning && currentTime === 0) {
+      // Prevent multiple triggers within 2 seconds
+      const now = Date.now();
+      if (now - lastPhaseChangeRef.current < 2000) {
+        return;
       }
       
-      toast({
-        title: newPhase === 'work' ? 'Break Ended' : 'Work Session Completed',
-        description: newPhase === 'work' 
-          ? 'Time to get back to work!' 
-          : 'Take a break, you\'ve earned it!',
-      })
+      // Update the last phase change time
+      lastPhaseChangeRef.current = now;
+      
+      // Store the current phase before changing it (for event dispatching)
+      const completedPhase = currentPhase;
+      
+      // Handle phase transition
+      if (currentPhase === 'work') {
+        // Work phase completed
+        
+        // Increment completed sessions counter
+        const newCompletedSessions = completedSessions + 1;
+        setCompletedSessions(newCompletedSessions);
+        
+        // Determine if we should take a long break
+        const isLongBreakDue = newCompletedSessions % pomodoroSettings.sessionsBeforeLongBreak === 0;
+        
+        // Set timer for the break phase
+        const breakDuration = isLongBreakDue 
+          ? pomodoroSettings.longBreakDuration 
+          : pomodoroSettings.breakDuration;
+        
+        // Switch to break phase
+        setCurrentPhase('break');
+        setCurrentTime(breakDuration);
+        
+        // Dispatch event for completed work session
+        const completedWorkMinutes = Math.floor(pomodoroSettings.workDuration / 60);
+        
+        // Define the event interface
+        interface PomodoroWorkCompletedEventDetail {
+          duration: number;
+          timestamp: string;
+        }
+        
+        // Create the event with proper typing
+        const eventDetail: PomodoroWorkCompletedEventDetail = {
+          duration: completedWorkMinutes,
+          timestamp: new Date().toISOString()
+        };
+        
+        // Dispatch custom event with the completed work duration
+        window.dispatchEvent(new CustomEvent<PomodoroWorkCompletedEventDetail>('pomodoro-work-completed', {
+          detail: eventDetail
+        }));
+        
+        // Show notification
+        toast({
+          title: isLongBreakDue ? "Long Break Time!" : "Break Time!",
+          description: isLongBreakDue 
+            ? `Great job completing ${pomodoroSettings.sessionsBeforeLongBreak} work sessions! Take a longer break.` 
+            : "Work session completed. Take a short break!",
+        });
+      } else {
+        // Break phase completed
+        
+        // Switch back to work phase
+        setCurrentPhase('work');
+        setCurrentTime(pomodoroSettings.workDuration);
+        
+        // Show notification
+        toast({
+          title: "Break Ended",
+          description: "Time to get back to work!",
+        });
+      }
     }
-  }, [currentTime, mode, isRunning, currentPhase, pomodoroSettings, toast])
+  }, [currentTime, mode, isRunning, currentPhase, pomodoroSettings, toast, completedSessions]);
 
   // Handle page visibility changes to sync timer when tab becomes visible again
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible' && isRunning && sessionStartTime) {
-          // When page becomes visible again, sync the timer with the actual elapsed time
-          const now = Date.now()
-          const elapsedSeconds = Math.floor((now - sessionStartTime) / 1000)
-          
-          if (mode === 'normal') {
-            // For normal mode, calculate the current time based on elapsed time
-            const storedTime = parseInt(localStorage.getItem('currentTime') || '0')
-            setCurrentTime(storedTime + elapsedSeconds)
-            setTotalElapsedTime(parseInt(localStorage.getItem('totalElapsedTime') || '0') + elapsedSeconds)
-          } else {
-            // For pomodoro, calculate remaining time
-            const phaseDuration = currentPhase === 'work' 
-              ? pomodoroSettings.workDuration 
-              : pomodoroSettings.breakDuration
-            setCurrentTime(Math.max(0, phaseDuration - elapsedSeconds))
-            setTotalElapsedTime(parseInt(localStorage.getItem('totalElapsedTime') || '0') + elapsedSeconds)
-          }
-          
-          // Update the session start time to now
-          setSessionStartTime(now)
-          localStorage.setItem('sessionStartTime', now.toString())
+        if (document.visibilityState === 'visible' && isRunning) {
+          // When page becomes visible again, update the last tick time
+          lastTickTimeRef.current = Date.now()
         }
       }
       
@@ -208,7 +330,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         document.removeEventListener('visibilitychange', handleVisibilityChange)
       }
     }
-  }, [isRunning, mode, sessionStartTime, currentPhase, pomodoroSettings])
+  }, [isRunning])
 
   // Handle beforeunload event to save timer state before page refresh/close
   useEffect(() => {
@@ -300,6 +422,28 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('pausedTotalElapsedTime', totalElapsedTime.toString())
   }
 
+  const skipBreak = () => {
+    if (mode === 'pomodoro' && currentPhase === 'break') {
+      // Skip the current break and start a new work session
+      setCurrentPhase('work');
+      setCurrentTime(pomodoroSettings.workDuration);
+      
+      // If timer is not running, start it
+      if (!isRunning) {
+        setIsRunning(true);
+        const now = Date.now();
+        setSessionStartTime(now);
+        localStorage.setItem('sessionStartTime', now.toString());
+      }
+      
+      // Show notification
+      toast({
+        title: "Break Skipped",
+        description: "Starting a new work session.",
+      });
+    }
+  };
+
   return (
     <TimerContext.Provider value={{
       mode,
@@ -314,7 +458,9 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       setPomodoroSettings,
       currentPhase,
       totalElapsedTime,
-      sessionStartTime
+      sessionStartTime,
+      completedSessions,
+      skipBreak
     }}>
       {children}
     </TimerContext.Provider>

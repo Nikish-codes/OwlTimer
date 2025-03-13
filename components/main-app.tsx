@@ -133,7 +133,7 @@ export function MainAppContent() {
   }, [isRunning, activeTab]);
 
   return (
-    <div className="min-h-screen bg-background flex relative">
+    <div className="min-h-screen bg-background flex flex-col sm:flex-row relative">
       {/* Floating Timer Controls - Removed as requested */}
 
       {/* Floating RelaxationSounds controls */}
@@ -147,7 +147,7 @@ export function MainAppContent() {
           <Volume2 className="h-4 w-4" />
         </Button>
         {showSoundControls && (
-          <Card className="p-4 w-[300px]">
+          <Card className="p-4 w-[300px] max-w-[90vw]">
             <RelaxationSounds />
           </Card>
         )}
@@ -157,41 +157,43 @@ export function MainAppContent() {
     {/* Sidebar */}
     <div 
       className={cn(
-        "h-screen sticky top-0 flex flex-col border-r transition-all duration-300",
-        sidebarOpen ? "w-64" : "w-16"
+        "sticky top-0 flex flex-row sm:flex-col border-b sm:border-b-0 sm:border-r transition-all duration-300 z-10 bg-background overflow-x-auto",
+        sidebarOpen ? "w-full sm:w-64" : "w-full sm:w-16"
       )}
     >
-      <div className="p-4 border-b flex justify-between items-center">
+      <div className="p-2 sm:p-4 border-r sm:border-r-0 sm:border-b flex justify-between items-center flex-shrink-0">
         <h1 className={cn(
-          "font-bold transition-all duration-300",
-          sidebarOpen ? "opacity-100" : "opacity-0 w-0"
+          "font-bold transition-all duration-300 text-sm sm:text-base",
+          sidebarOpen ? "opacity-100" : "opacity-0 w-0 sm:hidden"
         )}>
-          JEE Prep
+          Exam Prep
         </h1>
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="ml-auto"
         >
           <Menu className="h-4 w-4" />
         </Button>
       </div>
 
-      <nav className="flex-1 p-2 space-y-2">
+      <nav className="flex flex-row sm:flex-col flex-1 p-1 sm:p-2 space-x-1 sm:space-x-0 sm:space-y-2 overflow-x-auto sm:overflow-x-visible scrollbar-hide">
         {tabs.map((tab) => (
           <Button
             key={tab.id}
             variant={activeTab === tab.id ? "secondary" : "ghost"}
             className={cn(
-              "w-full justify-start",
-              !sidebarOpen && "justify-center"
+              "justify-start text-xs sm:text-sm",
+              !sidebarOpen && "justify-center",
+              "flex-shrink-0 px-2 sm:px-3"
             )}
             onClick={() => setActiveTab(tab.id)}
           >
-            <tab.icon className="h-4 w-4 mr-2" />
+            <tab.icon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
             <span className={cn(
               "transition-all duration-300",
-              sidebarOpen ? "opacity-100" : "opacity-0 w-0"
+              sidebarOpen ? "opacity-100" : "opacity-0 w-0 hidden sm:inline-block"
             )}>
               {tab.label}
             </span>
@@ -201,15 +203,15 @@ export function MainAppContent() {
         {/* Always visible timer in sidebar when running */}
         {isRunning && (
           <div className={cn(
-            "mt-4 p-3 rounded-md bg-primary/10 border border-primary/20 text-center transition-all duration-300",
-            sidebarOpen ? "mx-2" : "mx-1"
+            "mt-0 sm:mt-4 p-2 sm:p-3 rounded-md bg-primary/10 border border-primary/20 text-center transition-all duration-300 flex-shrink-0",
+            sidebarOpen ? "mx-1 sm:mx-2" : "mx-0 sm:mx-1"
           )}>
             <div className="text-xs text-muted-foreground mb-1">
               {sidebarOpen ? "Timer Running" : "⏱️"}
             </div>
             <div className={cn(
-              "font-mono font-bold",
-              sidebarOpen ? "text-sm" : "text-xs"
+              "font-mono font-bold text-xs",
+              sidebarOpen ? "text-xs sm:text-sm" : "text-[10px] sm:text-xs"
             )}>
               {formatTime(currentTime)}
             </div>
@@ -219,7 +221,7 @@ export function MainAppContent() {
     </div>
 
     {/* Main Content */}
-    <div className="flex-1 p-4">
+    <div className="flex-1 p-4 overflow-x-hidden">
       <Card className="h-full">
         {activeTab === 'home' && (
           <div className="space-y-6 p-4">
@@ -230,7 +232,7 @@ export function MainAppContent() {
                     Hey, {user.displayName || 'Student'}! 👋
                   </h2>
                   <p className="text-muted-foreground">
-                    Ready to ace your JEE preparation?
+                    Ready to ace your Exam preparation?
                   </p>
                 </div>
                 <RotatingQuote />
