@@ -5,7 +5,7 @@ export interface CalendarEvent {
   userId: string;
   title: string;
   startTime: string;
-  endTime?: string;
+  endTime: string;
   type: EventType;
   subject?: string;
   description?: string;

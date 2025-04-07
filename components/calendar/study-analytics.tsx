@@ -6,16 +6,40 @@ import { calculateStudyStats } from "@/lib/study-analytics"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { format } from "date-fns"
 import { Brain, Timer, Trophy, Clock, Coffee, TrendingUp } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+import { useState } from 'react';
 
 interface StudyAnalyticsProps {
   sessions: StudySession[]
 }
 
 export function StudyAnalytics({ sessions }: StudyAnalyticsProps) {
+  const [timeRange, setTimeRange] = useState<'today' | 'last7days' | 'last30days'>('today');
   const stats = calculateStudyStats(sessions)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      <Tabs defaultValue="overview" className="w-full">
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="subjects">Subjects</TabsTrigger>
+          </TabsList>
+          <Select onValueChange={(value) => setTimeRange(value as 'today' | 'last7days' | 'last30days')} value={timeRange}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Select Time Range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="last7days">Last 7 Days</SelectItem>
+              <SelectItem value="last30days">Last 30 Days</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+
+      <TabsContent value="overview" className="space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -158,6 +182,30 @@ export function StudyAnalytics({ sessions }: StudyAnalyticsProps) {
           </CardContent>
         </Card>
       </div>
-    </div>
+      </TabsContent>
+    <TabsContent value="subjects">
+      <Card>
+      <CardHeader>
+        <CardTitle>Subject Distribution</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+        {Object.entries(stats.subjectBreakdown).map(([subject, minutes]) => (
+          <div key={subject} className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Brain className="h-4 w-4 text-blue-500" />
+            <span>{subject}</span>
+          </div>
+          <span className="text-muted-foreground">
+            {Math.floor(minutes / 60)}h {minutes % 60}m
+          </span>
+          </div>
+        ))}
+        </div>
+      </CardContent>
+      </Card>
+    </TabsContent>
+    </Tabs>
+  </div>
   )
-} 
+}

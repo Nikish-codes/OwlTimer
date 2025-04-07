@@ -3,7 +3,7 @@ import { collection, query, where, getDocs, addDoc, updateDoc, doc, orderBy } fr
 import { StudySession } from '@/types/study-session'
 
 export async function addStudySession(userId: string, session: Omit<StudySession, 'id' | 'userId'>) {
-  const sessionsRef = collection(db, 'studySessions')
+  const sessionsRef = collection(db, 'study-sessions')
   const now = new Date()
   const docRef = await addDoc(sessionsRef, {
     ...session,
@@ -16,7 +16,7 @@ export async function addStudySession(userId: string, session: Omit<StudySession
 }
 
 export async function getStudySessions(userId: string) {
-  const sessionsRef = collection(db, 'studySessions')
+  const sessionsRef = collection(db, 'study-sessions')
   const q = query(
     sessionsRef, 
     where('userId', '==', userId),
@@ -31,6 +31,6 @@ export async function getStudySessions(userId: string) {
 }
 
 export async function updateStudySession(sessionId: string, updates: Partial<StudySession>) {
-  const sessionRef = doc(db, 'studySessions', sessionId)
+  const sessionRef = doc(db, 'study-sessions', sessionId)
   await updateDoc(sessionRef, updates)
 } 

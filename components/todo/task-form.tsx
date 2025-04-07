@@ -59,8 +59,9 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
           </PopoverTrigger>
           <PopoverContent className="p-0" align="start">
             <Calendar
-              value={dueDate || undefined}
-              onChange={(date: Date | null) => setDueDate(date || undefined)}
+              mode="single"
+              selected={dueDate}
+              onSelect={(date: Date | undefined) => setDueDate(date)}
             />
           </PopoverContent>
         </Popover>

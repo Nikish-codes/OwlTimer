@@ -143,7 +143,7 @@ export function MainApp() {
           )}
           {activeTab === 'tasks' && <TodoList />}
           {activeTab === 'analytics' && <StudyAnalytics />}
-          {activeTab === 'leaderboard' && <Leaderboard expanded={true} />}
+          {activeTab === 'leaderboard' && <Leaderboard />}
           {activeTab === 'settings' && <ProfileManager />}
         </Card>
       </div>

@@ -24,20 +24,21 @@ export function calculateStudyStats(sessions: StudySession[]): StudyStats {
 
   // Calculate subject breakdown
   const subjectBreakdown = sessions.reduce((acc, session) => {
-    acc[session.subject] = (acc[session.subject] || 0) + session.duration
+    const subject = session.subject
+    acc[subject] = (acc[subject] || 0) + session.duration
     return acc
   }, {} as Record<string, number>)
 
   // Calculate type breakdown
   const typeBreakdown = sessions.reduce((acc, session) => {
-    acc[session.type] = (acc[session.type] || 0) + session.duration
+    const type = session.type
+    acc[type] = (acc[type] || 0) + session.duration
     return acc
   }, {} as Record<string, number>)
 
   // Calculate weekly progress
   const weeklyProgress = sessions.reduce((acc, session) => {
-    const date = new Date(session.date)
-    const dateString = date.toISOString()
+    const dateString = session.date
     const existingDay = acc.find(day => day.date === dateString)
     
     if (existingDay) {
@@ -94,4 +95,4 @@ function calculateStreak(sessions: StudySession[]): number {
   }
 
   return streak
-} 
+}

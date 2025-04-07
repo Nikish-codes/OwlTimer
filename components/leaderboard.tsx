@@ -1,144 +1,123 @@
 "use client"
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useFirebase } from './firebase-provider'
-import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore'
-import { Medal } from 'lucide-react'
-import { Button } from './ui/button'
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
+import { Trophy } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useEffect, useState } from 'react'
-
-interface LeaderboardProps {
-  expanded?: boolean
-}
 
 interface LeaderboardEntry {
-  id: string
-  username: string
-  totalStudyTime: number
+  userId: string;
+  displayName: string;
+  totalTime: number;
 }
 
-export function Leaderboard({ expanded = false }: LeaderboardProps) {
-  const { db, user } = useFirebase()
+const formatTime = (minutes: number) => {
+  const hours = Math.floor(minutes / 60);
+  const mins = Math.round(minutes % 60);
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+};
+
+export function Leaderboard() {
+  const { user, db } = useFirebase()
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
 
   useEffect(() => {
-    if (user) {
-      loadLeaderboard()
-    }
-  }, [user])
+    if (!db) return;
 
-  const loadLeaderboard = async () => {
-    try {
-      setLoading(true)
-      console.log('Loading leaderboard...')
-      
-      const usersRef = collection(db, 'users')
-      const q = query(
-        usersRef,
-        orderBy('totalStudyTime', 'desc'),
-        limit(10)
-      )
-      console.log('Executing query...')
-      
-      const snapshot = await getDocs(q)
-      console.log('Got snapshot:', snapshot.size, 'documents')
-      
-      const entries = snapshot.docs.map(doc => {
-        const data = doc.data()
-        console.log('User data:', data)
-        return {
-          id: doc.id,
-          username: data.username || 'Anonymous',
-          totalStudyTime: data.totalStudyTime || 0
-        }
-      })
-      console.log('Processed entries:', entries)
-      
-      setLeaderboard(entries)
-    } catch (error) {
-      console.error('Error loading leaderboard:', error)
-      setLeaderboard([])
-    } finally {
-      setLoading(false)
-    }
-  }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-  const formatTime = (minutes: number) => {
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    return `${hours}h ${mins}m`
-  }
+    const sessionsQuery = query(
+      collection(db, 'study-sessions'),
+      where('date', '>=', today.toISOString()),
+      orderBy('date', 'desc')
+    );
 
-  if (!user) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Leaderboard</CardTitle>
-        </CardHeader>
-        <CardContent className="text-center py-8">
-          <p className="text-muted-foreground mb-4">
-            Sign in to compete with others!
-          </p>
-          <Button variant="outline" asChild>
-            <a href="/auth">Sign In</a>
-          </Button>
-        </CardContent>
-      </Card>
-    )
+    // Set up real-time listener
+    const unsubscribe = onSnapshot(sessionsQuery, (snapshot) => {
+      // Group sessions by user and calculate total time
+      const userTotals = new Map<string, { displayName: string; totalTime: number }>();
+      
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const duration = data.duration || 0;
+        
+        const userTotal = userTotals.get(data.userId) || { 
+          displayName: data.username || 'Anonymous',
+          totalTime: 0 
+        };
+        userTotal.totalTime += duration;
+        userTotals.set(data.userId, userTotal);
+      });
+
+      // Convert to array and sort by total time
+      const sortedEntries = Array.from(userTotals.entries())
+        .map(([userId, data]) => ({
+          userId,
+          displayName: data.displayName,
+          totalTime: Math.round(data.totalTime) // Round to nearest minute
+        }))
+        .sort((a, b) => b.totalTime - a.totalTime);
+
+      setEntries(sortedEntries);
+      setLoading(false);
+    }, (error) => {
+      console.error('Error loading leaderboard:', error);
+      setLoading(false);
+    });
+
+    // Cleanup listener on unmount
+    return () => unsubscribe();
+  }, [db]);
+
+  if (loading) {
+    return <div>Loading...</div>;
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Top Performers</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <Trophy className="h-5 w-5" />
+          Top Performers
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        {loading ? (
-          <div>Loading...</div>
-        ) : leaderboard.length === 0 ? (
-          <div className="text-center text-muted-foreground">No data yet</div>
-        ) : (
-          <ul className="space-y-2">
-            {leaderboard.map((entry, index) => {
-              const isCurrentUser = entry.id === user.uid
-              return (
-                <li 
-                  key={entry.id} 
-                  className={cn(
-                    "flex items-center justify-between p-2 rounded-lg",
-                    isCurrentUser ? "bg-muted" : "hover:bg-muted/50",
-                    "transition-colors"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    {index < 3 && (
-                      <Medal className={cn(
-                        index === 0 ? "text-yellow-500" :
-                        index === 1 ? "text-gray-400" :
-                        "text-amber-600"
-                      )} />
-                    )}
-                    <span className={cn(
-                      "font-medium",
-                      isCurrentUser && "text-primary"
-                    )}>
-                      {index + 1}. {entry.username}
-                      {isCurrentUser && " (You)"}
-                    </span>
-                  </div>
-                  <span className="text-muted-foreground">
-                    {formatTime(entry.totalStudyTime)}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        )}
+        <div className="space-y-4">
+          {entries.map((entry: LeaderboardEntry, index: number) => (
+            <div
+              key={entry.userId}
+              className="flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-full text-white",
+                  index === 0 ? "bg-yellow-500" :
+                  index === 1 ? "bg-gray-400" :
+                  index === 2 ? "bg-amber-600" :
+                  "bg-gray-200"
+                )}>
+                  {index + 1}
+                </div>
+                <div>
+                  {entry.displayName}
+                  {entry.userId === user?.uid && " (You)"}
+                </div>
+              </div>
+              <div>{formatTime(entry.totalTime)}</div>
+            </div>
+          ))}
+          {entries.length === 0 && (
+            <div className="text-center text-muted-foreground">
+              No study sessions recorded today
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 

@@ -1,16 +1,38 @@
 "use client"
 
-import { format, addHours, isSameHour, isSameDay } from 'date-fns'
-import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
-import { CalendarEvent } from "@/types/event"
-import { EventIndicator } from "./event-indicator"
-import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { StudySessionIndicator } from './study-session-indicator'
-import { StudySession } from '@/types/study-session'
-import { Todo } from '@/types/todo'
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { format } from 'date-fns'
+import { ScrollArea } from '../ui/scroll-area'
+import { Dialog, DialogContent, DialogTrigger } from '../ui/dialog'
+import { Button } from '../ui/button'
+import { Calendar } from 'lucide-react'
+
+interface StudySession {
+  id: string
+  type: 'study' | 'mock_test' | 'pomodoro' | 'focus'
+  duration: number
+  subject: string
+  timestamp: string
+}
+
+interface CalendarEvent {
+  id: string
+  title: string
+  description?: string
+  startTime: string
+  endTime: string
+  type: string
+}
+
+interface Todo {
+  id: string
+  text: string
+  completed: boolean
+  dueDate?: string
+  priority: string
+}
 
 interface DayViewProps {
   date: Date
@@ -23,117 +45,111 @@ interface DayViewProps {
 
 export function DayView({ 
   date, 
-  studySessions, 
-  tasks,
-  events,
-  onSelectTime,
+  studySessions = [], 
+  tasks = [], 
+  events = [], 
+  onSelectTime, 
   onAddEvent 
 }: DayViewProps) {
-  const hours = Array.from({ length: 24 }, (_, i) => addHours(new Date(date).setHours(0), i))
-  const todayEvents = events.filter(event => isSameDay(new Date(event.startTime), date))
-  const todaySessions = studySessions.filter(session => isSameDay(new Date(session.timestamp), date))
-  const todayTasks = tasks.filter(task => task.dueDate && isSameDay(new Date(task.dueDate), date))
+  const [isOpen, setIsOpen] = useState(false)
+
+  const totalTime = studySessions.reduce((acc, session: StudySession) => acc + session.duration, 0)
+  const sessionsBySubject = studySessions.reduce((acc, session: StudySession) => {
+    if (!acc[session.subject]) {
+      acc[session.subject] = 0
+    }
+    acc[session.subject] += session.duration
+    return acc
+  }, {} as Record<string, number>)
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">
-            {format(date, 'EEEE')}
-          </h2>
-          <p className="text-muted-foreground">
-            {format(date, 'MMMM d, yyyy')}
-          </p>
-        </div>
-        <Button onClick={onAddEvent}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Event
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          className="h-14 w-14 p-0 hover:bg-muted"
+        >
+          <div className="flex flex-col items-center justify-center space-y-1">
+            <span className="text-sm">{format(date, 'd')}</span>
+            {studySessions.length > 0 && (
+              <div className="flex -space-x-1">
+                {studySessions.slice(0, 3).map((session: StudySession) => (
+                  <StudySessionIndicator
+                    key={session.id}
+                    session={session}
+                    className="first:ml-0"
+                  />
+                ))}
+                {studySessions.length > 3 && (
+                  <div className="flex h-3 w-3 items-center justify-center rounded-full bg-blue-500/10">
+                    <span className="text-[10px] text-blue-500">+{studySessions.length - 3}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </Button>
-      </div>
-
-      {/* Summary Section */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="p-4 rounded-lg border bg-card">
-          <h3 className="font-semibold mb-2">Events</h3>
-          <p className="text-2xl font-bold">{todayEvents.length}</p>
-        </div>
-        <div className="p-4 rounded-lg border bg-card">
-          <h3 className="font-semibold mb-2">Study Sessions</h3>
-          <p className="text-2xl font-bold">{todaySessions.length}</p>
-        </div>
-        <div className="p-4 rounded-lg border bg-card">
-          <h3 className="font-semibold mb-2">Tasks Due</h3>
-          <p className="text-2xl font-bold">{todayTasks.length}</p>
-        </div>
-      </div>
-
-      {/* Timeline View */}
-      <ScrollArea className="h-[calc(100vh-400px)]">
-        <div className="grid grid-cols-[60px_1fr] gap-4">
-          {hours.map(hour => {
-            const hourEvents = events.filter(event => 
-              isSameHour(new Date(event.startTime), hour)
-            )
-            
-            return (
-              <div
-                key={hour.toISOString()}
-                className="group relative"
-              >
-                <div className="sticky top-0 text-sm text-muted-foreground">
-                  {format(hour, 'h a')}
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              {format(date, 'MMMM d, yyyy')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Summary */}
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Summary</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-lg border p-2">
+                    <div className="text-sm text-muted-foreground">Total Time</div>
+                    <div className="text-lg font-bold">
+                      {Math.floor(totalTime / 60)}h {totalTime % 60}m
+                    </div>
+                  </div>
+                  <div className="rounded-lg border p-2">
+                    <div className="text-sm text-muted-foreground">Sessions</div>
+                    <div className="text-lg font-bold">{studySessions.length}</div>
+                  </div>
                 </div>
-                <div 
-                  className="absolute inset-0 -z-10 group-hover:bg-muted/50 cursor-pointer rounded-lg transition-colors"
-                  onClick={() => onSelectTime(hour)}
-                />
-                
-                <div className="ml-16 space-y-2">
-                  {hourEvents.map(event => (
-                    <EventIndicator
-                      key={event.id}
-                      event={event}
-                    />
-                  ))}
+              </div>
 
-                  {studySessions
-                    .filter(session => isSameHour(new Date(session.timestamp), hour))
-                    .map(session => (
+              {/* Subject Breakdown */}
+              <div className="space-y-2">
+                <div className="text-sm font-medium">By Subject</div>
+                <div className="space-y-1">
+                  {Object.entries(sessionsBySubject).map(([subject, duration]) => (
+                    <div key={subject} className="flex justify-between text-sm">
+                      <span>{subject}</span>
+                      <span className="text-muted-foreground">
+                        {Math.floor(duration / 60)}h {duration % 60}m
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Session List */}
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Sessions</div>
+                <ScrollArea className="h-[200px]">
+                  <div className="space-y-2">
+                    {studySessions.map((session: StudySession) => (
                       <StudySessionIndicator
                         key={session.id}
                         session={session}
-                        compact={false}
                       />
                     ))}
-
-                  {tasks
-                    .filter(task => task.dueDate && isSameHour(new Date(task.dueDate), hour))
-                    .map(task => (
-                      <div
-                        key={task.id}
-                        className={cn(
-                          "p-2 rounded-md border",
-                          task.priority === 'high' ? "bg-red-500/10 text-red-500 border-red-500/20" :
-                          task.priority === 'medium' ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" :
-                          "bg-green-500/10 text-green-500 border-green-500/20"
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className={task.completed ? "line-through" : ""}>
-                            {task.text}
-                          </span>
-                          <Badge variant="outline">
-                            {task.priority}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                </div>
+                  </div>
+                </ScrollArea>
               </div>
-            )
-          })}
-        </div>
-      </ScrollArea>
-    </div>
+            </div>
+          </CardContent>
+        </Card>
+      </DialogContent>
+    </Dialog>
   )
 } 

@@ -7,7 +7,7 @@ export interface Todo {
   completed: boolean
   dueDate: string
   createdAt: string
-  subtasks: any[]
+  subtasks: Subtask[]
   lastModified?: string
   completedAt: string | null
   synced?: boolean

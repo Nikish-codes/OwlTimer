@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Download } from 'lucide-react'
 import { cn } from "@/lib/utils"
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay } from 'date-fns'
 import { DndContext, DragEndEvent } from '@dnd-kit/core'
@@ -42,6 +42,12 @@ interface CalendarViewProps {
 }
 
 type ViewMode = 'month' | 'week' | 'day'
+
+const formatTime = (minutes: number) => {
+  const hours = Math.floor(minutes / 60);
+  const mins = Math.round(minutes % 60);
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+};
 
 export function CalendarView({
   studySessions,
@@ -169,6 +175,85 @@ export function CalendarView({
     setIsDayDetailsOpen(true)
   }
 
+  const subjects = ["Physics", "Chemistry", "Mathematics", "Mock"]; // Define subjects here or import it
+
+  const exportDayData = () => {
+    if (!selectedDate) return;
+
+    // Get study sessions for selected date
+    const dayStart = new Date(selectedDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(selectedDate);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const dayStudySessions = studySessions.filter(session => {
+      if (!session.startTime) return false;
+      const sessionDate = new Date(session.startTime);
+      return sessionDate >= dayStart && sessionDate <= dayEnd;
+    });
+
+    // Get tasks for selected date
+    const dayTasks = tasks.filter(task => {
+      if (!task.dueDate) return false;
+      const taskDate = new Date(task.dueDate);
+      taskDate.setHours(0, 0, 0, 0);
+      const selectedDateCopy = new Date(selectedDate);
+      selectedDateCopy.setHours(0, 0, 0, 0);
+      return taskDate.getTime() === selectedDateCopy.getTime();
+    });
+
+    // Get events for selected date
+    const dayEvents = events.filter(event => {
+      if (!event.startTime) return false;
+      const eventDate = new Date(event.startTime);
+      eventDate.setHours(0, 0, 0, 0);
+      const selectedDateCopy = new Date(selectedDate);
+      selectedDateCopy.setHours(0, 0, 0, 0);
+      return eventDate.getTime() === selectedDateCopy.getTime();
+    });
+
+    // Calculate total study time per subject
+    const studyTimes: Record<string, number> = {};
+    dayStudySessions.forEach(session => {
+      const duration = session.duration || 0;
+      studyTimes[session.subject] = (studyTimes[session.subject] || 0) + duration;
+    });
+
+    // Generate export text
+    const exportText = `Study Report - ${selectedDate.toLocaleDateString()}\n\n` +
+      `=== Study Sessions ===\n` +
+      (Object.entries(studyTimes).length > 0
+        ? Object.entries(studyTimes)
+            .map(([subject, minutes]) => `${subject}: ${formatTime(minutes)}`)
+            .join('\n')
+        : 'No study sessions recorded\n' +
+          subjects.map(subject => `${subject}: 0h 0m`).join('\n')
+      ) + `\n\n` +
+      `=== Tasks ===\n` +
+      (dayTasks.length > 0
+        ? dayTasks
+            .map(task => `${task.completed ? '✓' : '○'} ${task.text} (${task.priority} priority)`)
+            .join('\n')
+        : 'No tasks scheduled') + `\n\n` +
+      `=== Events ===\n` +
+      (dayEvents.length > 0
+        ? dayEvents
+            .map(event => `• ${event.title} - ${event.description || 'No description'}`)
+            .join('\n')
+        : 'No events scheduled');
+
+    // Create and download file
+    const blob = new Blob([exportText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `study-report-${selectedDate.toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -225,6 +310,15 @@ export function CalendarView({
                 <SelectItem value="day">Day</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportDayData}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export Day
+            </Button>
           </div>
         </div>
       </CardHeader>
