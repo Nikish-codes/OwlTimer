@@ -23,8 +23,15 @@ export interface Todo {
   completed: boolean
   completedAt: string | null
   createdAt: string
+  updatedAt: string
   subtasks: { id: string; text: string; completed: boolean }[]
   synced?: boolean
+}
+
+export interface Subtask {
+  id: number
+  text: string
+  completed: boolean
 }
 
 const todosCollection = collection(db, 'todos')

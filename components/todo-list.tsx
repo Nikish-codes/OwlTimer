@@ -65,6 +65,7 @@ export function TodoList() {
     deleteTask
   } = useFirebaseTasks()
 
+  const [isOnline, setIsOnline] = useState(true)
   const [filters, setFilters] = useState<TaskFiltersType>({
     search: '',
     priorities: [],
@@ -79,63 +80,79 @@ export function TodoList() {
   const [showFilters, setShowFilters] = useState(false)
   const [showMissedTasks, setShowMissedTasks] = useState(true)
 
+  // Check online status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    // Set initial online status
+    setIsOnline(navigator.onLine)
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
   // Enhanced updateTask with retry and fallback
   const handleUpdateTask = async (taskId: string, updates: Partial<Todo>) => {
+    if (!user?.id) return;
+
     try {
-      // First attempt to update in Firebase
-      await updateTask(taskId, updates);
-      console.log("Task updated successfully:", taskId, updates);
-    } catch (error) {
-      console.error("Error updating task in Firebase:", error);
-      
-      // Show error toast
-      toast({
-        title: "Error updating task",
-        description: "Task will be saved locally and synced later",
-        variant: "destructive"
-      });
-      
-      // Store the update in localStorage for later sync
-      const pendingUpdates = JSON.parse(localStorage.getItem('pendingTaskUpdates') || '[]');
-      pendingUpdates.push({
-        taskId,
-        updates,
-        timestamp: new Date().toISOString()
-      });
-      localStorage.setItem('pendingTaskUpdates', JSON.stringify(pendingUpdates));
-      
-      // Update the local state to reflect the change
-      // This ensures the UI shows the correct state even if Firebase update failed
+      // First update local state and storage
       const allTasks = [...overdueTasks, ...todaysTasks, ...upcomingTasks];
       const taskToUpdate = allTasks.find(task => task.id === taskId);
       
       if (taskToUpdate) {
-        const updatedTask = { ...taskToUpdate, ...updates };
-        
-        // Create new arrays with the updated task
-        const updatedOverdueTasks = overdueTasks.map(task => 
+        // Create updated task with completion timestamp if completing
+        const updatedTask = { 
+          ...taskToUpdate, 
+          ...updates,
+          completedAt: updates.completed ? new Date().toISOString() : null
+        };
+
+        // Update all task arrays immediately
+        const updatedTasks = allTasks.map(task => 
           task.id === taskId ? updatedTask : task
         );
-        const updatedTodaysTasks = todaysTasks.map(task => 
-          task.id === taskId ? updatedTask : task
-        );
-        const updatedUpcomingTasks = upcomingTasks.map(task => 
-          task.id === taskId ? updatedTask : task
-        );
-        
-        // Save the updated tasks to local storage
-        const localStorageKey = `tasks_${user?.id}`;
-        const allUpdatedTasks = [...updatedOverdueTasks, ...updatedTodaysTasks, ...updatedUpcomingTasks];
-        localStorage.setItem(localStorageKey, JSON.stringify(allUpdatedTasks));
-        
-        // Force a re-render with the updated task arrays
+
+        // Update local storage immediately
+        const localStorageKey = `tasks_${user.id}`;
+        localStorage.setItem(localStorageKey, JSON.stringify(updatedTasks));
+
+        // Store the update for later sync with Firebase
+        const pendingUpdates = JSON.parse(localStorage.getItem('pendingUpdates') || '[]');
+        pendingUpdates.push({
+          taskId,
+          updates: {
+            ...updates,
+            completedAt: updatedTask.completedAt
+          },
+          timestamp: new Date().toISOString()
+        });
+        localStorage.setItem('pendingUpdates', JSON.stringify(pendingUpdates));
+
+        // Show success toast for completion
         if (updates.completed !== undefined) {
-          // If this was a completion toggle, update all task arrays
-          // We need to update the actual state variables to trigger a re-render
-          // This is a workaround since we can't directly modify the state from useFirebaseTasks
-          setFilters(prev => ({ ...prev })); // Trigger re-render
+          toast({
+            title: updates.completed ? "Task completed" : "Task reopened",
+            description: updates.completed 
+              ? "Task has been marked as complete" 
+              : "Task has been reopened",
+            variant: "default"
+          });
         }
       }
+    } catch (error) {
+      console.error("Error in handleUpdateTask:", error);
+      toast({
+        title: "Error updating task",
+        description: "Could not update the task. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -211,7 +228,7 @@ export function TodoList() {
   const filteredTodaysTasks = filterTasks(todaysTasks, filters)
   const filteredUpcomingTasks = filterTasks(upcomingTasks, filters)
   
-  const allTasks = [...todaysTasks, ...upcomingTasks]
+  const allTasks = [...filteredTodaysTasks, ...filteredUpcomingTasks]
   
   const sortTasks = (tasks: typeof overdueTasks) => {
     return [...tasks].sort((a, b) => {
@@ -234,9 +251,9 @@ export function TodoList() {
     })
   }
 
-  const sortedOverdueTasks = sortTasks(overdueTasks)
-  const sortedTodaysTasks = sortTasks(todaysTasks)
-  const sortedUpcomingTasks = sortTasks(upcomingTasks)
+  const sortedOverdueTasks = sortTasks(filteredOverdueTasks)
+  const sortedTodaysTasks = sortTasks(filteredTodaysTasks)
+  const sortedUpcomingTasks = sortTasks(filteredUpcomingTasks)
 
   const toggleSortDirection = () => {
     setSortDirection(prev => prev === "asc" ? "desc" : "asc")
@@ -287,8 +304,18 @@ export function TodoList() {
               try {
                 await addTask(task)
                 setShowAddTask(false)
+                toast({
+                  title: "Success",
+                  description: "Task has been added successfully",
+                  variant: "default"
+                })
               } catch (err) {
                 console.error('Error adding task:', err)
+                toast({
+                  title: "Error",
+                  description: "Failed to add task. Please try again.",
+                  variant: "destructive"
+                })
               }
             }} />
           </div>

@@ -38,26 +38,32 @@ interface TaskItemProps {
 export function TaskItem({ task, onUpdate, onDelete }: TaskItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [isChecked, setIsChecked] = useState(task.completed)
+  const [isCompleted, setIsCompleted] = useState(task.completed)
 
   useEffect(() => {
-    setIsChecked(task.completed);
+    setIsCompleted(task.completed);
   }, [task.completed]);
 
-  const handleToggleComplete = async () => {
-    const newCompletedState = !isChecked;
-    setIsChecked(newCompletedState);
+  const handleCheckboxChange = async (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    const newCompleted = !isCompleted;
+    
+    // Update local state immediately
+    setIsCompleted(newCompleted);
     
     try {
-      await onUpdate(task.id, {
-        completed: newCompletedState,
-        completedAt: newCompletedState ? new Date().toISOString() : null
+      // Update the task with completion timestamp
+      await onUpdate(task.id, { 
+        completed: newCompleted,
+        completedAt: newCompleted ? new Date().toISOString() : null,
+        updatedAt: new Date().toISOString()
       });
     } catch (error) {
-      console.error("Error updating task completion status:", error);
-      setIsChecked(!newCompletedState);
+      // If update fails, revert the local state
+      setIsCompleted(!newCompleted);
+      console.error("Error updating task completion:", error);
     }
-  }
+  };
 
   const handleUpdate = async (updatedFields: Omit<Todo, 'id' | 'userId' | 'createdAt'>) => {
     try {
@@ -121,14 +127,14 @@ export function TaskItem({ task, onUpdate, onDelete }: TaskItemProps) {
       <div className={`flex items-center gap-3 p-3 rounded-lg border ${task.completed ? 'bg-muted/30 border-muted' : 'bg-card border-border hover:border-primary/20 hover:bg-accent/5'} transition-colors group`}>
         {/* Improved custom checkbox for better visibility */}
         <div 
-          onClick={handleToggleComplete}
+          onClick={handleCheckboxChange}
           className={`flex-shrink-0 h-5 w-5 rounded-md border cursor-pointer flex items-center justify-center transition-colors ${
-            isChecked 
+            isCompleted 
               ? 'bg-primary border-primary text-primary-foreground' 
               : 'border-input hover:border-primary hover:bg-primary/10'
           }`}
         >
-          {isChecked && <Check className="h-3.5 w-3.5" />}
+          {isCompleted && <Check className="h-3.5 w-3.5" />}
         </div>
         
         <div className="flex-1 min-w-0">

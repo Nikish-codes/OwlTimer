@@ -20,6 +20,7 @@ import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Task } from "@/hooks/use-local-tasks"
+import { toast } from "@/components/ui/use-toast"
 
 interface TaskFormProps {
   initialValues?: Partial<Task>
@@ -35,36 +36,49 @@ export function TaskForm({ initialValues, onSubmit, submitLabel = "Add Task" }: 
     initialValues?.dueDate ? new Date(initialValues.dueDate) : new Date()
   )
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [subtasks, setSubtasks] = useState<{ id: string; text: string; completed: boolean }[]>(
+    initialValues?.subtasks?.map(st => ({
+      id: st.id,
+      text: st.text,
+      completed: st.completed
+    })) || [{ id: Date.now().toString(), text: '', completed: false }]
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!text.trim()) {
-      return // Don't submit empty tasks
-    }
-    
-    setIsSubmitting(true)
-    
+    if (!text.trim()) return
+
     try {
-      await onSubmit({
-        text,
-        priority,
-        subject,
+      setIsSubmitting(true)
+      const newTask = {
+        text: text.trim(),
+        subject: subject || 'General',
+        priority: priority || 'medium',
         dueDate: dueDate ? dueDate.toISOString() : null,
         completed: initialValues?.completed || false,
         completedAt: initialValues?.completedAt || null,
-        subtasks: initialValues?.subtasks || []
-      })
-      
-      // Clear form if not editing
-      if (!initialValues) {
-        setText("")
-        setPriority("medium")
-        setSubject("")
-        setDueDate(undefined)
+        subtasks: subtasks.filter(st => st.text.trim()).map(st => ({
+          id: st.id,
+          text: st.text.trim(),
+          completed: false
+        })),
+        updatedAt: new Date().toISOString(),
+        userId: initialValues?.userId || 'local-user'
       }
+
+      await onSubmit(newTask)
+      setText('')
+      setSubject('')
+      setPriority('medium')
+      setDueDate(undefined)
+      setSubtasks([{ id: Date.now().toString(), text: '', completed: false }])
     } catch (error) {
-      console.error("Error submitting task:", error)
+      console.error('Error submitting task:', error)
+      toast({
+        title: "Error",
+        description: "Failed to add task. Please try again.",
+        variant: "destructive"
+      })
     } finally {
       setIsSubmitting(false)
     }

@@ -7,14 +7,17 @@ import { startOfDay, endOfDay, addDays, isAfter, isBefore, isToday } from 'date-
 // Define the Task type
 export interface Task {
   id: string
+  userId: string
   text: string
-  priority: 'low' | 'medium' | 'high'
   subject: string
-  dueDate: string | null
+  priority: 'low' | 'medium' | 'high'
   completed: boolean
   completedAt: string | null
+  dueDate: string | null
   createdAt: string
-  subtasks: any[]
+  updatedAt: string
+  subtasks: { id: string; text: string; completed: boolean }[]
+  synced?: boolean
 }
 
 // Define the return type of the hook

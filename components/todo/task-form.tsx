@@ -31,7 +31,8 @@ export function TaskForm({ onSubmit }: TaskFormProps) {
       subject,
       completed: false,
       completedAt: null,
-      subtasks: []
+      subtasks: [],
+      updatedAt: new Date().toISOString()
     })
     setText('')
     setDueDate(undefined)

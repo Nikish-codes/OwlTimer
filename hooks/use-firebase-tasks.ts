@@ -9,8 +9,27 @@ export function useFirebaseTasks() {
   const [loading, setLoading] = useState(true)
   const [tasks, setTasks] = useState<Todo[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [isOnline, setIsOnline] = useState(true)
+  const [lastSync, setLastSync] = useState<Date | null>(null)
 
-  // Fetch tasks
+  // Check online status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    // Set initial online status
+    setIsOnline(navigator.onLine)
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  // Load tasks from local storage
   useEffect(() => {
     if (!user?.id) {
       setTasks([])
@@ -22,7 +41,7 @@ export function useFirebaseTasks() {
       try {
         setLoading(true)
         
-        // Try to load from local storage first
+        // Always load from local storage first
         const localStorageKey = `tasks_${user.id}`
         const localTasks = localStorage.getItem(localStorageKey)
         let tasksFromStorage: Todo[] = []
@@ -36,27 +55,54 @@ export function useFirebaseTasks() {
             console.error('Error parsing local tasks:', e)
           }
         }
+
+        // Check if we need to sync with Firebase (every 30 minutes)
+        const lastSyncStr = localStorage.getItem('lastSync')
+        const lastSyncTime = lastSyncStr ? new Date(lastSyncStr) : null
+        const shouldSync = !lastSyncTime || (Date.now() - lastSyncTime.getTime() > 30 * 60 * 1000)
         
-        // Then try to fetch from Firebase
-        try {
-          const fetchedTasks = await getTodos(user.id)
-          setTasks(fetchedTasks)
-          
-          // Update local storage with the latest data from Firebase
-          localStorage.setItem(localStorageKey, JSON.stringify(fetchedTasks))
-          setError(null)
-        } catch (firebaseErr) {
-          console.error('Error loading tasks from Firebase:', firebaseErr)
-          
-          // If we have local tasks, use them and show a warning
-          if (tasksFromStorage.length > 0) {
-            toast({
-              title: "Using cached tasks",
-              description: "Could not connect to the server. Using locally saved tasks.",
-              variant: "default"
+        // Only try Firebase if we're online and it's time to sync
+        if (isOnline && shouldSync) {
+          try {
+            const fetchedTasks = await getTodos(user.id)
+            
+            // Merge local tasks with Firebase tasks
+            const mergedTasks = [...tasksFromStorage]
+            fetchedTasks.forEach(firebaseTask => {
+              const existingTask = mergedTasks.find(t => t.id === firebaseTask.id)
+              if (!existingTask) {
+                mergedTasks.push(firebaseTask)
+              } else if (new Date(firebaseTask.updatedAt || 0) > new Date(existingTask.updatedAt || 0)) {
+                // If Firebase task is newer, update it
+                Object.assign(existingTask, firebaseTask)
+              }
             })
-          } else {
-            setError('Failed to load tasks')
+            
+            setTasks(mergedTasks)
+            
+            // Update local storage with merged data
+            localStorage.setItem(localStorageKey, JSON.stringify(mergedTasks))
+            localStorage.setItem('lastSync', new Date().toISOString())
+            setLastSync(new Date())
+            setError(null)
+          } catch (firebaseErr) {
+            console.error('Error loading tasks from Firebase:', firebaseErr)
+            
+            // If we have local tasks, use them and show a warning
+            if (tasksFromStorage.length > 0) {
+              toast({
+                title: "Using cached tasks",
+                description: "Could not connect to the server. Using locally saved tasks.",
+                variant: "default"
+              })
+            } else {
+              setError('No tasks available offline')
+            }
+          }
+        } else {
+          // If we're offline or it's not time to sync, just use local storage
+          if (tasksFromStorage.length === 0) {
+            setError('No tasks available offline')
           }
         }
       } finally {
@@ -65,7 +111,42 @@ export function useFirebaseTasks() {
     }
 
     loadTasks()
-  }, [user?.id])
+  }, [user?.id, isOnline])
+
+  // Set up periodic sync with Firebase
+  useEffect(() => {
+    if (!isOnline || !user?.id) return
+
+    const syncInterval = setInterval(async () => {
+      try {
+        const fetchedTasks = await getTodos(user.id)
+        
+        // Merge with local tasks instead of replacing
+        const localStorageKey = `tasks_${user.id}`
+        const localTasks = JSON.parse(localStorage.getItem(localStorageKey) || '[]')
+        const mergedTasks = [...localTasks]
+        
+        fetchedTasks.forEach(firebaseTask => {
+          const existingTask = mergedTasks.find(t => t.id === firebaseTask.id)
+          if (!existingTask) {
+            mergedTasks.push(firebaseTask)
+          } else if (new Date(firebaseTask.updatedAt || 0) > new Date(existingTask.updatedAt || 0)) {
+            Object.assign(existingTask, firebaseTask)
+          }
+        })
+        
+        setTasks(mergedTasks)
+        localStorage.setItem(localStorageKey, JSON.stringify(mergedTasks))
+        localStorage.setItem('lastSync', new Date().toISOString())
+        setLastSync(new Date())
+      } catch (err) {
+        console.error('Error syncing with Firebase:', err)
+        // Don't show error toast for background sync failures
+      }
+    }, 30 * 60 * 1000) // Sync every 30 minutes
+
+    return () => clearInterval(syncInterval)
+  }, [isOnline, user?.id])
 
   // Filter tasks by date ranges
   const today = startOfDay(new Date())
@@ -107,25 +188,37 @@ export function useFirebaseTasks() {
         completed: false,
         completedAt: null,
         subtasks: task.subtasks || [],
+        id: `local_${Date.now()}`, // Generate a temporary local ID
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }
 
-      // Try to add to Firebase
-      const id = await addTodo(newTask as Omit<Todo, 'id'>)
-      
-      // Fetch fresh data to ensure we have the correct timestamps
-      const updatedTasks = await getTodos(user.id)
+      // Update local state and storage immediately
+      const updatedTasks = [...tasks, newTask]
       setTasks(updatedTasks)
       
       // Update local storage
       const localStorageKey = `tasks_${user.id}`
       localStorage.setItem(localStorageKey, JSON.stringify(updatedTasks))
       
-      return updatedTasks.find(t => t.id === id)
+      // Store the task for later sync with Firebase
+      const pendingTasks = JSON.parse(localStorage.getItem('pendingTasks') || '[]')
+      pendingTasks.push(newTask)
+      localStorage.setItem('pendingTasks', JSON.stringify(pendingTasks))
+      
+      // Show success message
+      toast({
+        title: "Task added",
+        description: "Task has been saved locally",
+        variant: "default"
+      })
+      
+      return newTask
     } catch (err) {
       console.error('Error adding task:', err)
       toast({
         title: "Failed to add task",
-        description: "Could not connect to the server. Please try again later.",
+        description: "Could not save the task. Please try again.",
         variant: "destructive"
       })
       throw new Error('Failed to add task')
@@ -139,29 +232,25 @@ export function useFirebaseTasks() {
       // Optimistically update the UI first
       const taskToUpdate = tasks.find(t => t.id === taskId)
       if (taskToUpdate) {
-        const updatedTask = { ...taskToUpdate, ...updates }
+        const updatedTask = { 
+          ...taskToUpdate, 
+          ...updates,
+          updatedAt: new Date().toISOString()
+        }
         const updatedTasks = tasks.map(t => t.id === taskId ? updatedTask : t)
         setTasks(updatedTasks)
         
         // Update local storage immediately
         const localStorageKey = `tasks_${user.id}`
         localStorage.setItem(localStorageKey, JSON.stringify(updatedTasks))
+        
+        // Store the update for later sync with Firebase
+        const pendingUpdates = JSON.parse(localStorage.getItem('pendingUpdates') || '[]')
+        pendingUpdates.push({ taskId, updates })
+        localStorage.setItem('pendingUpdates', JSON.stringify(pendingUpdates))
       }
-      
-      // Then try to update Firebase
-      await updateTodo(taskId, updates)
-      
-      // Fetch fresh data to ensure we have the correct timestamps
-      const freshTasks = await getTodos(user.id)
-      setTasks(freshTasks)
-      
-      // Update local storage with the latest data
-      const localStorageKey = `tasks_${user.id}`
-      localStorage.setItem(localStorageKey, JSON.stringify(freshTasks))
     } catch (err) {
       console.error('Error updating task:', err)
-      // The optimistic update already happened, so we don't need to revert the UI
-      // Just throw the error so the caller can handle it
       throw new Error('Failed to update task')
     }
   }
@@ -178,17 +267,17 @@ export function useFirebaseTasks() {
       const localStorageKey = `tasks_${user.id}`
       localStorage.setItem(localStorageKey, JSON.stringify(updatedTasks))
       
-      // Then try to delete from Firebase
-      await deleteTodo(taskId)
+      // Store the deletion for later sync with Firebase
+      const pendingDeletions = JSON.parse(localStorage.getItem('pendingDeletions') || '[]')
+      pendingDeletions.push(taskId)
+      localStorage.setItem('pendingDeletions', JSON.stringify(pendingDeletions))
     } catch (err) {
       console.error('Error deleting task:', err)
       toast({
         title: "Failed to delete task",
-        description: "The task will be deleted locally but may reappear when you reconnect.",
+        description: "Could not delete the task. Please try again.",
         variant: "destructive"
       })
-      // We don't revert the UI since the task is already removed
-      // Just throw the error so the caller can handle it
       throw new Error('Failed to delete task')
     }
   }
@@ -203,6 +292,8 @@ export function useFirebaseTasks() {
     completedTasks,
     addTask,
     updateTask,
-    deleteTask
+    deleteTask,
+    isOnline,
+    lastSync
   }
 }
